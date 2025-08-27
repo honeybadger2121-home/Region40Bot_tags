@@ -136,6 +136,11 @@ The bot uses SQLite with the following schema:
 
 MIT License - see LICENSE file for details
 
+## Legal
+
+- [Terms of Service](TERMS_OF_SERVICE.md)
+- [Privacy Policy](PRIVACY_POLICY.md)
+
 ## Support
 
 For support or questions, please open an issue on GitHub.
