@@ -44,18 +44,6 @@ BOT_TOKEN=your_discord_bot_token_here
 
 ### Running the Bot
 
-#### Development Mode
-```bash
-# Start bot only
-npm run dev
-
-# Start dashboard only
-npm run dev-dashboard
-
-# Start both bot and dashboard
-npm run dev-both
-```
-
 #### Production Mode
 ```bash
 # Start bot only
@@ -64,8 +52,32 @@ npm start
 # Start dashboard only
 npm run dashboard
 
-# Start both bot and dashboard
+# Start both bot and dashboard (recommended)
+npm run both-trace
+
+# Start both with concurrently (may show deprecation warnings)
 npm run both
+```
+
+#### Development Mode
+```bash
+# Start bot only in development mode
+npm run dev
+
+# Start dashboard only in development mode
+npm run dev-dashboard
+
+# Start both in development mode
+npm run dev-both
+```
+
+#### Debug Mode
+```bash
+# Start bot with debugger and detailed traces
+npm run debug
+
+# Start dashboard with debugger and detailed traces
+npm run debug-dashboard
 ```
 
 #### View Available Commands

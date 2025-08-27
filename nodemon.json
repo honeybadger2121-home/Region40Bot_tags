@@ -1,5 +1,8 @@
 {
-  "watch": ["index.js"],
-  "ext": "js,json",
-  "exec": "node index.js"
+  "watch": ["index.js", "dashboard.js", "views/**/*.ejs"],
+  "ext": "js,json,ejs",
+  "exec": "node --trace-warnings index.js",
+  "env": {
+    "NODE_ENV": "development"
+  }
 }

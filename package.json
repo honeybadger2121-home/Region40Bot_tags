@@ -4,14 +4,18 @@
   "description": "Modular Discord onboarding bot with CAPTCHA, profile modal, alliance selection, and admin commands.",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dashboard": "node dashboard.js",
-    "both": "concurrently \"npm start\" \"npm run dashboard\"",
-    "dev": "nodemon index.js",
-    "dev-dashboard": "nodemon dashboard.js",
+    "start": "node --trace-warnings index.js",
+    "dashboard": "node --trace-warnings dashboard.js",
+    "both": "node --no-deprecation -e \"require('concurrently')(['npm start', 'npm run dashboard'], {prefix: 'name', killOthers: ['failure', 'success']})\"",
+    "both-trace": "node start-with-traces.js",
+    "dev": "nodemon --exec \"node --trace-warnings\" index.js",
+    "dev-dashboard": "nodemon --exec \"node --trace-warnings\" dashboard.js",
     "dev-both": "concurrently \"npm run dev\" \"npm run dev-dashboard\"",
     "install-deps": "npm install",
-    "help": "echo \"Available scripts:\n- npm start: Start the Discord bot\n- npm run dashboard: Start the web dashboard\n- npm run both: Start both bot and dashboard\n- npm run dev: Start bot in development mode\n- npm run dev-both: Start both in development mode\n- npm run install-deps: Install all dependencies\""
+    "debug": "node --trace-warnings --inspect index.js",
+    "debug-dashboard": "node --trace-warnings --inspect dashboard.js",
+    "trace-deps": "node --trace-deprecation --trace-warnings -p \"require('util')._extend\"",
+    "help": "echo \"Available scripts:\n- npm start: Start the Discord bot with warning traces\n- npm run dashboard: Start the web dashboard with warning traces\n- npm run both: Start both bot and dashboard\n- npm run both-trace: Start both with full deprecation traces\n- npm run dev: Start bot in development mode with warning traces\n- npm run dev-both: Start both in development mode\n- npm run debug: Start bot with debugger and warning traces\n- npm run trace-deps: Show deprecation traces\n- npm run install-deps: Install all dependencies\""
   },
   "dependencies": {
     "@discordjs/rest": "^1.6.0",
