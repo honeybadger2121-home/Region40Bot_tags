@@ -15,7 +15,8 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  EmbedBuilder
+  EmbedBuilder,
+  MessageFlags
 } = require('discord.js');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
@@ -170,7 +171,7 @@ client.on(Events.InteractionCreate, async interaction => {
         if (row && row.verified && row.alliance) {
           return interaction.reply({
             content: `✅ You’ve already completed onboarding!\nAlliance: ${row.alliance}`,
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           });
         }
 
@@ -179,7 +180,7 @@ client.on(Events.InteractionCreate, async interaction => {
             console.error('Database error:', err);
             return await interaction.reply({ 
               content: '❌ An error occurred. Please try again.',
-              ephemeral: true 
+              flags: MessageFlags.Ephemeral 
             });
           }
           await interaction.update({
@@ -259,7 +260,7 @@ client.on(Events.InteractionCreate, async interaction => {
       console.error('Profile submission error:', err);
       return interaction.reply({
         content: '❌ An error occurred while saving your profile.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       }).catch(() => null);
     }
     return;
@@ -280,7 +281,7 @@ client.on(Events.InteractionCreate, async interaction => {
         if (!guild) {
           return await interaction.reply({
             content: '❌ Could not find server. Please try again in the server.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           });
         }
       }
@@ -290,7 +291,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (!member) {
         return await interaction.reply({
           content: '❌ Could not verify your membership.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
 
@@ -304,7 +305,7 @@ client.on(Events.InteractionCreate, async interaction => {
           }
 
           if (!row) {
-            await interaction.reply({ content: 'Please complete your profile first.', ephemeral: true });
+            await interaction.reply({ content: 'Please complete your profile first.', flags: MessageFlags.Ephemeral });
             reject(new Error('No profile found'));
             return;
           }
@@ -314,7 +315,7 @@ client.on(Events.InteractionCreate, async interaction => {
           if (!role) {
             await interaction.reply({
               content: '❌ Alliance role not found. Please contact an admin.',
-              ephemeral: true 
+              flags: MessageFlags.Ephemeral 
             });
             reject(new Error('Role not found'));
             return;
@@ -334,7 +335,7 @@ client.on(Events.InteractionCreate, async interaction => {
                 console.error('Database update error:', updateErr);
                 await interaction.reply({ 
                   content: '❌ An error occurred updating your profile.',
-                  ephemeral: true 
+                  flags: MessageFlags.Ephemeral 
                 });
                 reject(updateErr);
                 return;
@@ -368,7 +369,7 @@ client.on(Events.InteractionCreate, async interaction => {
             console.error('Role assignment error:', roleErr);
             await interaction.reply({ 
               content: '❌ Could not assign alliance role. Please contact an admin.',
-              ephemeral: true 
+              flags: MessageFlags.Ephemeral 
             });
             reject(roleErr);
           }
@@ -379,7 +380,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
           content: '❌ An error occurred during alliance selection.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         }).catch(() => null);
       }
     }
@@ -390,7 +391,7 @@ client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.guild) {
     return interaction.reply({ 
       content: '❌ This command can only be used in a server.',
-      ephemeral: true 
+      flags: MessageFlags.Ephemeral 
     });
   }
 
@@ -401,7 +402,7 @@ client.on(Events.InteractionCreate, async interaction => {
   if (guild && !member) {
     return interaction.reply({ 
       content: '❌ Could not fetch your member data.',
-      ephemeral: true 
+      flags: MessageFlags.Ephemeral 
     });
   }
 
@@ -411,7 +412,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
     // onboard command
     if (interaction.commandName === 'onboard') {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const target = interaction.options.getUser('user');
       if (target) {
@@ -460,11 +461,11 @@ client.on(Events.InteractionCreate, async interaction => {
       if (!interaction.member?.permissions.has(PermissionsBitField.Flags.Administrator)) {
         return interaction.reply({ 
           content: '❌ You must be an admin to use this command.',
-          ephemeral: true 
+          flags: MessageFlags.Ephemeral 
         });
       }
 
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const members = await interaction.guild.members.fetch();
       let success = 0, failed = 0;
@@ -509,7 +510,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
         await interaction.reply({
           content: `📊 **Onboarding Stats**\nTotal Users: ${total}\n✅ Verified: ${verified}\n🖊️ Profiled: ${profiled}\n🛡️ Alliance Selected: ${withAlliance}\n\n**Alliance Breakdown:**\n${allianceSummary}`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       });
       return;
@@ -518,12 +519,12 @@ client.on(Events.InteractionCreate, async interaction => {
     // profile command
     if (interaction.commandName === 'profile') {
       db.get(`SELECT * FROM profiles WHERE userId = ?`, [userId], async (err, row) => {
-        if (!row) return interaction.reply({ content: 'No profile found.', ephemeral: true });
+        if (!row) return interaction.reply({ content: 'No profile found.', flags: MessageFlags.Ephemeral });
 
         if (sub === 'view') {
           return interaction.reply({
             content: `👤 **Your Profile**\nName: ${row.inGameName}\nAlliance: ${row.alliance || 'None'}\nTime Zone: ${row.timezone}\nLanguage: ${row.language}`,
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           });
         }
 
@@ -531,7 +532,7 @@ client.on(Events.InteractionCreate, async interaction => {
           const btn = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('open_profile_modal').setLabel('🖊️ Edit Profile').setStyle(ButtonStyle.Primary)
           );
-          return interaction.reply({ content: 'Click below to edit your profile:', components: [btn], ephemeral: true });
+          return interaction.reply({ content: 'Click below to edit your profile:', components: [btn], flags: MessageFlags.Ephemeral });
         }
       });
       return;
@@ -542,7 +543,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (sub === 'list') {
         return interaction.reply({
           content: `Available alliances:\n💛 ANQA\n🤍 JAXA\n💜 MGXT\n❤️ 1ARK\n💙 SPBG\n🤎 JAX2\n🩵 ANK\n🖤 INTR\n💚 STH\n💕 ARCR`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
 
@@ -570,7 +571,7 @@ client.on(Events.InteractionCreate, async interaction => {
         return interaction.reply({
           content: 'Select your new alliance:',
           components: [allianceMenu],
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
       return;
@@ -582,7 +583,7 @@ client.on(Events.InteractionCreate, async interaction => {
         if (!row) {
           return interaction.reply({
             content: '❌ You have not started onboarding yet.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           });
         }
 
@@ -594,7 +595,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
         return interaction.reply({
           content: `📋 **Your Onboarding Status**\n${verified}\nAlliance: ${alliance}\nName: ${name}\nTime Zone: ${timezone}\nLanguage: ${language}`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       });
       return;
@@ -605,7 +606,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (!interaction.member?.permissions.has(PermissionsBitField.Flags.Administrator)) {
         return interaction.reply({ 
           content: '❌ You must be an admin to use this command.',
-          ephemeral: true 
+          flags: MessageFlags.Ephemeral 
         });
       }
 
@@ -615,13 +616,13 @@ client.on(Events.InteractionCreate, async interaction => {
       if (!targetMember) {
         return interaction.reply({ 
           content: '❌ Could not find that user in the server.',
-          ephemeral: true 
+          flags: MessageFlags.Ephemeral 
         });
       }
 
       db.run(`DELETE FROM profiles WHERE userId = ?`, [target.id], async err => {
         if (err) {
-          return interaction.reply({ content: '❌ Failed to reset profile.', ephemeral: true });
+          return interaction.reply({ content: '❌ Failed to reset profile.', flags: MessageFlags.Ephemeral });
         }
 
         // Optionally remove alliance roles
@@ -638,7 +639,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
         return interaction.reply({
           content: `✅ Reset onboarding profile for ${target.tag}`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       });
       return;
@@ -687,5 +688,7 @@ cron.schedule('0 * * * *', async () => {
 
 // 🔚 Start the bot
 client.login(process.env.BOT_TOKEN);
+
+
 
 
