@@ -267,166 +267,122 @@ client.on(Events.InteractionCreate, async interaction => {
 
   // Handle alliance selection separately
   if (interaction.isStringSelectMenu() && interaction.customId === 'alliance_select') {
-    const alliance = interaction.values[0];
-    
-    // Get guild through channel instead of member
-    const guild = interaction.guild;
-    if (!guild) {
-      // Try to get guild through client cache
-      const guilds = Array.from(client.guilds.cache.values());
-      const firstGuild = guilds[0];
-      if (!firstGuild) {
-        return await interaction.reply({
-          content: '❌ Could not find server. Please try again in the server.',
-          ephemeral: true
-        });
+    try {
+      const alliance = interaction.values[0];
+      
+      // Get guild - try interaction.guild first, then client cache
+      let guild = interaction.guild;
+      let member = null;
+
+      if (!guild) {
+        const guilds = Array.from(client.guilds.cache.values());
+        guild = guilds[0];
+        if (!guild) {
+          return await interaction.reply({
+            content: '❌ Could not find server. Please try again in the server.',
+            ephemeral: true
+          });
+        }
       }
-      // Get member from found guild
-      const member = await firstGuild.members.fetch(interaction.user.id).catch(() => null);
+
+      // Get member
+      member = await guild.members.fetch(interaction.user.id).catch(() => null);
       if (!member) {
         return await interaction.reply({
-          content: '❌ Could not verify your membership. Please try again in the server.',
+          content: '❌ Could not verify your membership.',
           ephemeral: true
         });
       }
 
-      // Inline alliance selection logic
-      db.get(`SELECT inGameName, timezone, language FROM profiles WHERE userId = ?`, [interaction.user.id], async (err, row) => {
-        if (err) {
-          console.error('Database error:', err);
-          return interaction.reply({ 
-            content: '❌ An error occurred. Please try again.',
-            ephemeral: true 
-          });
-        }
-
-        if (!row) {
-          return interaction.reply({ content: 'Please complete your profile first.', ephemeral: true });
-        }
-
-        const role = firstGuild.roles.cache.find(r => r.name === alliance);
-        if (!role) {
-          return interaction.reply({
-            content: '❌ Alliance role not found. Please contact an admin.',
-            ephemeral: true 
-          });
-        }
-
-        try {
-          await member.roles.add(role);
-        } catch (err) {
-          console.error('Role assignment error:', err);
-          return interaction.reply({ 
-            content: '❌ Could not assign alliance role. Please contact an admin.',
-            ephemeral: true 
-          });
-        }
-
-        const nickname = `(${alliance}) ${row.inGameName}`;
-        await member.setNickname(nickname).catch(() => null);
-        db.run(`UPDATE profiles SET alliance = ? WHERE userId = ?`, [alliance, interaction.user.id], err => {
+      // Get user profile from database
+      await new Promise((resolve, reject) => {
+        db.get(`SELECT inGameName, timezone, language FROM profiles WHERE userId = ?`, [interaction.user.id], async (err, row) => {
           if (err) {
             console.error('Database error:', err);
-            return interaction.reply({ 
-              content: '❌ An error occurred. Please try again.',
+            reject(new Error('Database error'));
+            return;
+          }
+
+          if (!row) {
+            await interaction.reply({ content: 'Please complete your profile first.', ephemeral: true });
+            reject(new Error('No profile found'));
+            return;
+          }
+
+          // Find alliance role
+          const role = guild.roles.cache.find(r => r.name === alliance);
+          if (!role) {
+            await interaction.reply({
+              content: '❌ Alliance role not found. Please contact an admin.',
               ephemeral: true 
             });
+            reject(new Error('Role not found'));
+            return;
+          }
+
+          try {
+            // Add role to member
+            await member.roles.add(role);
+            
+            // Set nickname
+            const nickname = `(${alliance}) ${row.inGameName}`;
+            await member.setNickname(nickname).catch(() => null);
+            
+            // Update database
+            db.run(`UPDATE profiles SET alliance = ? WHERE userId = ?`, [alliance, interaction.user.id], async (updateErr) => {
+              if (updateErr) {
+                console.error('Database update error:', updateErr);
+                await interaction.reply({ 
+                  content: '❌ An error occurred updating your profile.',
+                  ephemeral: true 
+                });
+                reject(updateErr);
+                return;
+              }
+
+              // Update interaction message
+              await interaction.update({
+                content: `✅ Onboarding Complete!\n${buildBar(3)}\nYour nickname is now **${nickname}**.`,
+                components: []
+              });
+
+              // Send welcome message
+              const welcomeCh = guild.channels.cache.find(c => c.name === 'welcome');
+              if (welcomeCh?.isTextBased()) {
+                welcomeCh.send({
+                  content: `🎉 Welcome ${nickname}!\n🕒 Time Zone: ${row.timezone}\n🌐 Language: ${row.language}`
+                });
+              }
+
+              // Send log message
+              const logCh = guild.channels.cache.find(c => c.name === 'mod-log');
+              if (logCh?.isTextBased()) {
+                logCh.send({
+                  content: `📝 Onboarding Log:\nUser: <@${interaction.user.id}>\nAlliance: ${alliance}\nTime Zone: ${row.timezone}\nLanguage: ${row.language}`
+                });
+              }
+
+              resolve();
+            });
+          } catch (roleErr) {
+            console.error('Role assignment error:', roleErr);
+            await interaction.reply({ 
+              content: '❌ Could not assign alliance role. Please contact an admin.',
+              ephemeral: true 
+            });
+            reject(roleErr);
           }
         });
-
-        await interaction.update({
-          content: `✅ Onboarding Complete!\n${buildBar(3)}\nYour nickname is now **${nickname}**.`,
-          components: []
-        });
-
-        const welcomeCh = firstGuild.channels.cache.find(c => c.name === 'welcome');
-        if (welcomeCh?.isTextBased()) {
-          welcomeCh.send({
-            content: `🎉 Welcome ${nickname}!\n🕒 Time Zone: ${row.timezone}\n🌐 Language: ${row.language}`
-          });
-        }
-
-        const logCh = firstGuild.channels.cache.find(c => c.name === 'mod-log');
-        if (logCh?.isTextBased()) {
-          logCh.send({
-            content: `📝 Onboarding Log:\nUser: <@${interaction.user.id}>\nAlliance: ${alliance}\nTime Zone: ${row.timezone}\nLanguage: ${row.language}`
-          });
-        }
       });
-      return;
+    } catch (err) {
+      console.error('Alliance selection error:', err);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ An error occurred during alliance selection.',
+          ephemeral: true
+        }).catch(() => null);
+      }
     }
-
-    const member = await guild.members.fetch(interaction.user.id).catch(() => null);
-    if (!member) {
-      return await interaction.reply({
-        content: '❌ Could not verify your membership.',
-        ephemeral: true
-      });
-    }
-
-    // Rest of your existing alliance selection code...
-    db.get(`SELECT inGameName, timezone, language FROM profiles WHERE userId = ?`, [interaction.user.id], async (err, row) => {
-      if (err) {
-        console.error('Database error:', err);
-        return interaction.reply({ 
-          content: '❌ An error occurred. Please try again.',
-          ephemeral: true 
-        });
-      }
-
-      if (!row) {
-        return interaction.reply({ content: 'Please complete your profile first.', ephemeral: true });
-      }
-
-      const role = guild.roles.cache.find(r => r.name === alliance);
-      if (!role) {
-        return interaction.reply({
-          content: '❌ Alliance role not found. Please contact an admin.',
-          ephemeral: true 
-        });
-      }
-
-      try {
-        await member.roles.add(role);
-      } catch (err) {
-        console.error('Role assignment error:', err);
-        return interaction.reply({ 
-          content: '❌ Could not assign alliance role. Please contact an admin.',
-          ephemeral: true 
-        });
-      }
-
-      const nickname = `(${alliance}) ${row.inGameName}`;
-      await member.setNickname(nickname).catch(() => null);
-      db.run(`UPDATE profiles SET alliance = ? WHERE userId = ?`, [alliance, userId], err => {
-        if (err) {
-          console.error('Database error:', err);
-          return interaction.reply({ 
-            content: '❌ An error occurred. Please try again.',
-            ephemeral: true 
-          });
-        }
-      });
-
-      await interaction.update({
-        content: `✅ Onboarding Complete!\n${buildBar(3)}\nYour nickname is now **${nickname}**.`,
-        components: []
-      });
-
-      const welcomeCh = guild.channels.cache.find(c => c.name === 'welcome');
-      if (welcomeCh?.isTextBased()) {
-        welcomeCh.send({
-          content: `🎉 Welcome ${nickname}!\n🕒 Time Zone: ${row.timezone}\n🌐 Language: ${row.language}`
-        });
-      }
-
-      const logCh = guild.channels.cache.find(c => c.name === 'mod-log');
-      if (logCh?.isTextBased()) {
-        logCh.send({
-          content: `📝 Onboarding Log:\nUser: <@${userId}>\nAlliance: ${alliance}\nTime Zone: ${row.timezone}\nLanguage: ${row.language}`
-        });
-      }
-    });
     return;
   }
 
